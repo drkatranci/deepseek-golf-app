@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 32, 32, 32;
+    --background-end-rgb: 32, 32, 32;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+img {
+  flex-shrink: 0;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Add the styles here */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Center text in select and option elements */
+select, option {
+  text-align: center;
+  text-align-last: center; /* For modern browsers */
+  -moz-text-align-last: center; /* For Firefox */
+  -webkit-text-align-last: center; /* For Safari and Chrome */
+}
+
+
+/* Style the select element */
+select {
+  color: #ffffff; /* Tailwind's neutral-800 */
+  background-color: #262626; /* Tailwind's white */
+}
+
+
+@keyframes slideInOut {
+  0% {
+    right: -500px;
+    opacity: 1;
+  }
+  10% {
+    right: 20px;
+    opacity: 1;
+  }
+  90% {
+    right: 20px;
+    opacity: 1;
+  }
+  100% {
+    right: -500px;
+    opacity: 1;
+  }
+}
+
+.alert-box {
+  position: fixed;
+  top: 50px;
+  right: -500px;
+  animation: slideInOut 4s ease-in-out forwards;
+}
