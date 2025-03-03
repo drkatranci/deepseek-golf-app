@@ -1,0 +1,320 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model AuditLogs {
+  log_id    Int       @id @default(autoincrement())
+  admin_id  Int
+  old_value Int?
+  new_value Int?
+  reason    String?   @db.Text
+  timestamp DateTime? @default(now()) @db.Timestamp(0)
+  score_id  Int
+  Players   Players   @relation(fields: [admin_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "AuditLogs_ibfk_1")
+  Scores    Scores    @relation(fields: [score_id], references: [score_id], onDelete: NoAction, onUpdate: NoAction, map: "AuditLogs_ibfk_2")
+
+  @@index([admin_id], map: "admin_id")
+  @@index([score_id], map: "score_id")
+}
+
+model Categories {
+  category_id             Int                       @id @default(autoincrement())
+  category_name           String                    @db.VarChar(100)
+  gender                  Categories_gender?        @default(All)
+  min_handicap            Decimal?                  @db.Decimal(5, 1)
+  max_handicap            Decimal?                  @db.Decimal(5, 1)
+  min_age                 Int?
+  max_age                 Int?
+  format                  Categories_format?        @default(Stableford_Net)
+  CategoryTees            CategoryTees[]
+  Leaderboard             Leaderboard[]
+  TournamentCategories    TournamentCategories[]
+  TournamentRegistrations TournamentRegistrations[]
+}
+
+model CategoryTees {
+  category_tee_id Int        @id @default(autoincrement())
+  category_id     Int
+  tee_id          Int
+  Categories      Categories @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "CategoryTees_ibfk_1")
+  Tees            Tees       @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction, onUpdate: NoAction, map: "CategoryTees_ibfk_2")
+
+  @@index([category_id], map: "category_id")
+  @@index([tee_id], map: "tee_id")
+}
+
+model Courses {
+  course_id   Int      @id @default(autoincrement())
+  course_name String   @db.VarChar(255)
+  location    String?  @db.VarChar(255)
+  Rounds      Rounds[]
+  Tees        Tees[]
+}
+
+model Flights {
+  flight_id     Int             @id @default(autoincrement())
+  round_id      Int
+  name          String?         @db.VarChar(100)
+  passcode      String?         @db.VarChar(10)
+  status        Flights_status? @default(active)
+  starting_tee  Int?
+  starting_time DateTime?
+  Rounds        Rounds          @relation(fields: [round_id], references: [round_id], onDelete: NoAction, onUpdate: NoAction, map: "Flights_ibfk_1")
+  PlayerFlights PlayerFlights[]
+  Scorecards    Scorecards[]
+
+  @@index([round_id], map: "round_id")
+}
+
+model HandicapHistory {
+  handicap_id    Int      @id @default(autoincrement())
+  player_id      Int
+  value          Decimal  @db.Decimal(5, 1)
+  effective_date DateTime @db.Date
+  Players        Players  @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "HandicapHistory_ibfk_1")
+
+  @@index([player_id], map: "player_id")
+}
+
+model Holes {
+  hole_id      Int      @id @default(autoincrement())
+  tee_id       Int
+  hole_number  Int
+  par          Int
+  yardage      Int
+  stroke_index Int
+  Tees         Tees     @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction, onUpdate: NoAction, map: "Holes_ibfk_1")
+  Scores       Scores[]
+
+  @@index([tee_id], map: "tee_id")
+}
+
+model PlayerFlights {
+  player_flight_id Int     @id @default(autoincrement())
+  player_id        Int
+  flight_id        Int
+  tee_id           Int
+  Players          Players @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerFlights_ibfk_1")
+  Flights          Flights @relation(fields: [flight_id], references: [flight_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerFlights_ibfk_2")
+  Tees             Tees    @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerFlights_ibfk_3")
+
+  @@index([flight_id], map: "flight_id")
+  @@index([player_id], map: "player_id")
+  @@index([tee_id], map: "tee_id")
+}
+
+model PlayerTees {
+  player_tee_id     Int      @id @default(autoincrement())
+  player_id         Int
+  round_id          Int
+  tee_id            Int
+  assigned_handicap Decimal? @db.Decimal(5, 1)
+  Players           Players  @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerTees_ibfk_1")
+  Rounds            Rounds   @relation(fields: [round_id], references: [round_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerTees_ibfk_2")
+  Tees              Tees     @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerTees_ibfk_3")
+
+  @@index([player_id], map: "player_id")
+  @@index([round_id], map: "round_id")
+  @@index([tee_id], map: "tee_id")
+}
+
+model Players {
+  player_id               Int                       @id @default(autoincrement())
+  email                   String                    @unique(map: "email") @db.VarChar(255)
+  password_hash           String                    @db.VarChar(255)
+  first_name              String?                   @db.VarChar(50)
+  last_name               String?                   @db.VarChar(50)
+  role                    Players_role?             @default(player)
+  gender                  Players_gender?
+  handicap_index          Decimal?                  @db.Decimal(5, 1)
+  home_club               String?                   @db.VarChar(100)
+  date_of_birth           DateTime?                 @db.Date
+  created_at              DateTime?                 @default(now()) @db.Timestamp(0)
+  updated_at              DateTime?                 @default(now()) @db.Timestamp(0)
+  auditLogs               AuditLogs[]
+  handicapHistories       HandicapHistory[]
+  leaderboards            Leaderboard[]
+  playerFlights           PlayerFlights[]
+  playerTees              PlayerTees[]
+  scorecards              Scorecards[]
+  TournamentRegistrations TournamentRegistrations[]
+}
+
+model Rounds {
+  round_id      Int            @id @default(autoincrement())
+  tournament_id Int
+  course_id     Int
+  round_number  Int?
+  format        Rounds_format?
+  sequence      Int
+  Flights       Flights[]
+  PlayerTees    PlayerTees[]
+  Tournaments   Tournaments    @relation(fields: [tournament_id], references: [tournament_id], onDelete: NoAction, onUpdate: NoAction, map: "Rounds_ibfk_1")
+  Courses       Courses        @relation(fields: [course_id], references: [course_id], onDelete: NoAction, onUpdate: NoAction, map: "Rounds_ibfk_2")
+
+  @@index([course_id], map: "course_id")
+  @@index([tournament_id], map: "tournament_id")
+}
+
+model Scorecards {
+  scorecard_id Int                @id @default(autoincrement())
+  flight_id    Int
+  player_id    Int
+  status       Scorecards_status? @default(pending)
+  total_score  Int?
+  passcode     String?            @db.VarChar(255)
+  confirmed_at DateTime?          @db.Timestamp(0)
+  Flights      Flights            @relation(fields: [flight_id], references: [flight_id], onDelete: NoAction, onUpdate: NoAction, map: "Scorecards_ibfk_1")
+  Players      Players            @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "Scorecards_ibfk_2")
+  Scores       Scores[]
+
+  @@index([flight_id], map: "flight_id")
+  @@index([player_id], map: "player_id")
+}
+
+model Scores {
+  score_id     Int         @id @default(autoincrement())
+  scorecard_id Int
+  hole_id      Int
+  gross        Int?
+  net          Int?
+  stb          Int?
+  AuditLogs    AuditLogs[]
+  Scorecards   Scorecards  @relation(fields: [scorecard_id], references: [scorecard_id], onDelete: NoAction, onUpdate: NoAction, map: "Scores_ibfk_1")
+  Holes        Holes       @relation(fields: [hole_id], references: [hole_id], onDelete: NoAction, onUpdate: NoAction, map: "Scores_ibfk_2")
+
+  @@unique([scorecard_id, hole_id], name: "scorecard_id_hole_id")
+  @@index([hole_id], map: "hole_id")
+  @@index([scorecard_id], map: "scorecard_id")
+}
+
+model Tees {
+  tee_id        Int             @id @default(autoincrement())
+  course_id     Int
+  tee_color     String          @db.VarChar(50)
+  course_rating Decimal?        @db.Decimal(5, 2)
+  slope_rating  Int?
+  CategoryTees  CategoryTees[]
+  Holes         Holes[]
+  PlayerFlights PlayerFlights[]
+  PlayerTees    PlayerTees[]
+  Courses       Courses         @relation(fields: [course_id], references: [course_id], onDelete: NoAction, onUpdate: NoAction, map: "Tees_ibfk_1")
+
+  @@index([course_id], map: "course_id")
+}
+
+model TournamentCategories {
+  tournament_category_id Int         @id @default(autoincrement())
+  tournament_id          Int
+  category_id            Int
+  Tournaments            Tournaments @relation(fields: [tournament_id], references: [tournament_id], onDelete: NoAction, onUpdate: NoAction, map: "TournamentCategories_ibfk_1")
+  Categories             Categories  @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "TournamentCategories_ibfk_2")
+
+  @@index([category_id], map: "category_id")
+  @@index([tournament_id], map: "tournament_id")
+}
+
+model Tournaments {
+  tournament_id           Int                       @id @default(autoincrement())
+  tournament_name         String                    @db.VarChar(255)
+  start_date              DateTime?                 @db.Date
+  end_date                DateTime?                 @db.Date
+  status                  Tournaments_status?       @default(upcoming)
+  created_at              DateTime?                 @default(now()) @db.Timestamp(0)
+  sponsor_name            String                    @db.VarChar(255)
+  Rounds                  Rounds[]
+  TournamentCategories    TournamentCategories[]
+  TournamentRegistrations TournamentRegistrations[]
+}
+
+model TournamentRegistrations {
+  tournament_registration_id Int         @id @default(autoincrement())
+  player_id                  Int
+  tournament_id              Int
+  category_id                Int
+  Players                    Players     @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "TournamentRegistrations_ibfk_1")
+  Tournaments                Tournaments @relation(fields: [tournament_id], references: [tournament_id], onDelete: NoAction, onUpdate: NoAction, map: "TournamentRegistrations_ibfk_2")
+  Categories                 Categories  @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "TournamentRegistrations_ibfk_3")
+
+  @@unique([player_id, tournament_id], map: "player_tournament")
+  @@index([category_id], map: "category_idx")
+  @@index([player_id], map: "player_idx")
+  @@index([tournament_id], map: "tournament_idx")
+}
+
+model Leaderboard {
+  leaderboard_id Int        @id @default(autoincrement())
+  categories_id  Int
+  score          Int
+  player_id      Int
+  Categories     Categories @relation(fields: [categories_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction)
+  Players        Players    @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([categories_id], map: "categories_id")
+  @@index([player_id], map: "player_id")
+}
+
+enum Categories_gender {
+  M
+  F
+  O
+  All
+}
+
+enum Scorecards_status {
+  pending
+  approved
+  rejected
+}
+
+enum Flights_status {
+  active
+  locked
+}
+
+enum Tournaments_status {
+  upcoming
+  active
+  completed
+}
+
+enum Players_role {
+  player
+  admin
+  super_admin
+}
+
+enum Players_gender {
+  M
+  F
+  O
+}
+
+enum Rounds_format {
+  Gross
+  Medal_Net           @map("Medal Net")
+  Stableford_Net      @map("Stableford Net")
+  Singles
+  Fourball
+  Foursomes
+  Skins
+  Scramble
+  Modified_Stableford @map("Modified Stableford")
+}
+
+enum Categories_format {
+  Gross
+  Medal_Net           @map("Medal Net")
+  Stableford_Net      @map("Stableford Net")
+  Singles
+  Fourball
+  Foursomes
+  Skins
+  Scramble
+  Modified_Stableford @map("Modified Stableford")
+}
