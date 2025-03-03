@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Common models
 model AuditLogs {
   log_id    Int       @id @default(autoincrement())
   admin_id  Int
@@ -15,37 +16,48 @@ model AuditLogs {
   reason    String?   @db.Text
   timestamp DateTime? @default(now()) @db.Timestamp(0)
   score_id  Int
-  Players   Players   @relation(fields: [admin_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "AuditLogs_ibfk_1")
-  Scores    Scores    @relation(fields: [score_id], references: [score_id], onDelete: NoAction, onUpdate: NoAction, map: "AuditLogs_ibfk_2")
+  Players   Players   @relation(fields: [admin_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction)
+  Scores    Scores    @relation(fields: [score_id], references: [score_id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([admin_id], map: "admin_id")
-  @@index([score_id], map: "score_id")
+  @@index([admin_id])
+  @@index([score_id])
 }
 
-model Categories {
-  category_id             Int                       @id @default(autoincrement())
-  category_name           String                    @db.VarChar(100)
-  gender                  Categories_gender?        @default(All)
-  min_handicap            Decimal?                  @db.Decimal(5, 1)
-  max_handicap            Decimal?                  @db.Decimal(5, 1)
-  min_age                 Int?
-  max_age                 Int?
-  format                  Categories_format?        @default(Stableford_Net)
-  CategoryTees            CategoryTees[]
-  Leaderboard             Leaderboard[]
-  TournamentCategories    TournamentCategories[]
-  TournamentRegistrations TournamentRegistrations[]
+model Players {
+  player_id             Int                       @id @default(autoincrement())
+  email                 String                    @unique @db.VarChar(255)
+  password_hash         String                    @db.VarChar(255)
+  first_name            String?                   @db.VarChar(50)
+  last_name             String?                   @db.VarChar(50)
+  role                  Players_role?             @default(player)
+  gender                Players_gender?
+  handicap_index        Decimal?                  @db.Decimal(5, 1)
+  home_club             String?                   @db.VarChar(100)
+  date_of_birth         DateTime?                 @db.Date
+  created_at            DateTime?                 @default(now()) @db.Timestamp(0)
+  updated_at            DateTime?                 @default(now()) @db.Timestamp(0)
+
+  // Relations
+  auditLogs               AuditLogs[]
+  handicapHistories       HandicapHistory[]
+  playerFlights           PlayerFlights[]
+  playerTees              PlayerTees[]
+  scorecards              Scorecards[]
+  tournamentRegistrations TournamentRegistrations[]
+  leaderboardEntries      Leaderboard[]
+  teamMembers             TeamMembers[]
+  matchPlayers            MatchPlayers[]
+  leagueIndividualPlayers LeagueIndividualPlayers[]
 }
 
-model CategoryTees {
-  category_tee_id Int        @id @default(autoincrement())
-  category_id     Int
-  tee_id          Int
-  Categories      Categories @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "CategoryTees_ibfk_1")
-  Tees            Tees       @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction, onUpdate: NoAction, map: "CategoryTees_ibfk_2")
+model HandicapHistory {
+  handicap_id    Int      @id @default(autoincrement())
+  player_id      Int
+  value          Decimal  @db.Decimal(5, 1)
+  effective_date DateTime @db.Date
+  Players        Players  @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([category_id], map: "category_id")
-  @@index([tee_id], map: "tee_id")
+  @@index([player_id])
 }
 
 model Courses {
@@ -56,29 +68,21 @@ model Courses {
   Tees        Tees[]
 }
 
-model Flights {
-  flight_id     Int             @id @default(autoincrement())
-  round_id      Int
-  name          String?         @db.VarChar(100)
-  passcode      String?         @db.VarChar(10)
-  status        Flights_status? @default(active)
-  starting_tee  Int?
-  starting_time DateTime?
-  Rounds        Rounds          @relation(fields: [round_id], references: [round_id], onDelete: NoAction, onUpdate: NoAction, map: "Flights_ibfk_1")
+model Tees {
+  tee_id        Int             @id @default(autoincrement())
+  course_id     Int
+  tee_color     String          @db.VarChar(50)
+  course_rating Decimal?        @db.Decimal(5, 2)
+  slope_rating  Int?
+  
+  // Relations
+  Courses       Courses         @relation(fields: [course_id], references: [course_id], onDelete: NoAction, onUpdate: NoAction)
+  CategoryTees  CategoryTees[]
+  Holes         Holes[]
   PlayerFlights PlayerFlights[]
-  Scorecards    Scorecards[]
+  PlayerTees    PlayerTees[]
 
-  @@index([round_id], map: "round_id")
-}
-
-model HandicapHistory {
-  handicap_id    Int      @id @default(autoincrement())
-  player_id      Int
-  value          Decimal  @db.Decimal(5, 1)
-  effective_date DateTime @db.Date
-  Players        Players  @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "HandicapHistory_ibfk_1")
-
-  @@index([player_id], map: "player_id")
+  @@index([course_id])
 }
 
 model Holes {
@@ -88,10 +92,316 @@ model Holes {
   par          Int
   yardage      Int
   stroke_index Int
-  Tees         Tees     @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction, onUpdate: NoAction, map: "Holes_ibfk_1")
+  
+  // Relations
+  Tees         Tees     @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction, onUpdate: NoAction)
   Scores       Scores[]
 
-  @@index([tee_id], map: "tee_id")
+  @@index([tee_id])
+}
+
+// Tournament-related models
+model Categories {
+  category_id             Int                       @id @default(autoincrement())
+  category_name           String                    @db.VarChar(100)
+  gender                  Categories_gender?        @default(All)
+  min_handicap            Decimal?                  @db.Decimal(5, 1)
+  max_handicap            Decimal?                  @db.Decimal(5, 1)
+  min_age                 Int?
+  max_age                 Int?
+  format                  Categories_format?        @default(Stableford_Net)
+  
+  // Relations
+  CategoryTees            CategoryTees[]
+  Leaderboard             Leaderboard[]
+  TournamentCategories    TournamentCategories[]
+  TournamentRegistrations TournamentRegistrations[]
+}
+
+model CategoryTees {
+  category_tee_id Int        @id @default(autoincrement())
+  category_id     Int
+  tee_id          Int
+  
+  // Relations
+  Categories      Categories @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction)
+  Tees            Tees       @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([category_id])
+  @@index([tee_id])
+}
+
+// Event models (base types)
+model Events {
+  event_id    Int           @id @default(autoincrement())
+  name        String        @db.VarChar(255)
+  start_date  DateTime?     @db.Date
+  end_date    DateTime?     @db.Date
+  status      Event_status? @default(upcoming)
+  created_at  DateTime?     @default(now()) @db.Timestamp(0)
+  updated_at  DateTime?     @default(now()) @db.Timestamp(0)
+  event_type  Event_type    // Discriminator field
+  
+  // Relations via child models
+  tournaments Tournament[]
+  games       Game[]
+  leagues     League[]
+}
+
+// Specific event types
+model Tournament {
+  tournament_id  Int         @id @default(autoincrement())
+  event_id       Int         @unique
+  type           Tournament_type
+  sponsor_name   String?     @db.VarChar(255)
+  
+  // Relations
+  event          Events      @relation(fields: [event_id], references: [event_id], onDelete: Cascade)
+  rounds         Rounds[]
+  tournamentCategories TournamentCategories[]
+  tournamentRegistrations TournamentRegistrations[]
+  teamMatchplayTournament TeamMatchplayTournament?
+}
+
+model TeamMatchplayTournament {
+  id            Int         @id @default(autoincrement())
+  tournament_id Int         @unique
+  team_size     Int
+  num_teams     Int
+  format        MatchplayFormat
+  
+  // Relations
+  tournament    Tournament  @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade)
+  teams         Team[]
+  phases        MatchPhase[]
+}
+
+model MatchPhase {
+  phase_id      Int             @id @default(autoincrement())
+  tournament_id Int
+  phase_type    MatchPhase_type
+  sequence      Int
+  points_value  Int             @default(1)
+  
+  // Relations
+  tournament    TeamMatchplayTournament @relation(fields: [tournament_id], references: [id], onDelete: Cascade)
+  matches       Match[]
+
+  @@index([tournament_id])
+}
+
+model Game {
+  game_id     Int          @id @default(autoincrement())
+  event_id    Int          @unique
+  course_id   Int
+  format      Rounds_format
+  
+  // Relations
+  event       Events       @relation(fields: [event_id], references: [event_id], onDelete: Cascade)
+  course      Courses      @relation(fields: [course_id], references: [course_id], onDelete: NoAction)
+  flights     Flights[]
+}
+
+model League {
+  league_id    Int             @id @default(autoincrement())
+  event_id     Int             @unique
+  league_type  League_type
+  points_win   Int             @default(3)
+  points_draw  Int             @default(1)
+  points_loss  Int             @default(0)
+  
+  // Relations
+  event        Events          @relation(fields: [event_id], references: [event_id], onDelete: Cascade)
+  individualLeague IndividualLeague?
+  teamLeague       TeamLeague?
+  matchplayLeague  MatchplayLeague?
+}
+
+model IndividualLeague {
+  id              Int      @id @default(autoincrement())
+  league_id       Int      @unique
+  format          Rounds_format
+  rounds_count    Int
+  drop_rounds     Int      @default(0)  // Number of worst rounds that can be dropped
+  
+  // Relations
+  league          League   @relation(fields: [league_id], references: [league_id], onDelete: Cascade)
+  rounds          LeagueRound[]
+  players         LeagueIndividualPlayers[]
+}
+
+model TeamLeague {
+  id              Int      @id @default(autoincrement())
+  league_id       Int      @unique
+  format          Rounds_format
+  team_size       Int
+  rounds_count    Int
+  counting_scores Int      @default(3)  // Number of scores that count per team
+  
+  // Relations
+  league          League   @relation(fields: [league_id], references: [league_id], onDelete: Cascade)
+  teams           Team[]
+  rounds          LeagueRound[]
+}
+
+model MatchplayLeague {
+  id              Int          @id @default(autoincrement())
+  league_id       Int          @unique
+  format          MatchplayFormat
+  rounds_per_match Int         @default(1)
+  
+  // Relations
+  league          League       @relation(fields: [league_id], references: [league_id], onDelete: Cascade)
+  matches         Match[]
+}
+
+model LeagueRound {
+  round_id        Int          @id @default(autoincrement())
+  individual_league_id Int?
+  team_league_id  Int?
+  course_id       Int
+  round_date      DateTime     @db.Date
+  status          Round_status @default(upcoming)
+  
+  // Relations
+  individualLeague IndividualLeague? @relation(fields: [individual_league_id], references: [id], onDelete: SetNull)
+  teamLeague      TeamLeague?      @relation(fields: [team_league_id], references: [id], onDelete: SetNull)
+  course          Courses          @relation(fields: [course_id], references: [course_id], onDelete: NoAction)
+  flights         Flights[]
+
+  @@index([individual_league_id])
+  @@index([team_league_id])
+  @@index([course_id])
+}
+
+model LeagueIndividualPlayers {
+  id              Int             @id @default(autoincrement())
+  league_id       Int
+  player_id       Int
+  total_points    Int             @default(0)
+  
+  // Relations
+  league          IndividualLeague @relation(fields: [league_id], references: [id], onDelete: Cascade)
+  player          Players         @relation(fields: [player_id], references: [player_id], onDelete: Cascade)
+
+  @@unique([league_id, player_id])
+  @@index([player_id])
+}
+
+model Team {
+  team_id         Int             @id @default(autoincrement())
+  name            String          @db.VarChar(100)
+  team_matchplay_id Int?
+  team_league_id  Int?
+  captain_id      Int?
+  
+  // Relations
+  teamMatchplay   TeamMatchplayTournament? @relation(fields: [team_matchplay_id], references: [id], onDelete: SetNull)
+  teamLeague      TeamLeague?      @relation(fields: [team_league_id], references: [id], onDelete: SetNull)
+  members         TeamMembers[]
+  homeMatches     Match[]          @relation("HomeTeam")
+  awayMatches     Match[]          @relation("AwayTeam")
+
+  @@index([team_matchplay_id])
+  @@index([team_league_id])
+}
+
+model TeamMembers {
+  id              Int             @id @default(autoincrement())
+  team_id         Int
+  player_id       Int
+  role            TeamMember_role @default(member)
+  
+  // Relations
+  team            Team            @relation(fields: [team_id], references: [team_id], onDelete: Cascade)
+  player          Players         @relation(fields: [player_id], references: [player_id], onDelete: Cascade)
+
+  @@unique([team_id, player_id])
+  @@index([player_id])
+}
+
+model Match {
+  match_id        Int             @id @default(autoincrement())
+  phase_id        Int?
+  matchplay_league_id Int?
+  home_team_id    Int
+  away_team_id    Int
+  match_date      DateTime?       @db.Date
+  status          Match_status    @default(scheduled)
+  home_score      Decimal?        @db.Decimal(5, 2)
+  away_score      Decimal?        @db.Decimal(5, 2)
+  
+  // Relations
+  phase           MatchPhase?     @relation(fields: [phase_id], references: [phase_id], onDelete: SetNull)
+  matchplayLeague MatchplayLeague? @relation(fields: [matchplay_league_id], references: [id], onDelete: SetNull)
+  homeTeam        Team            @relation("HomeTeam", fields: [home_team_id], references: [team_id], onDelete: NoAction)
+  awayTeam        Team            @relation("AwayTeam", fields: [away_team_id], references: [team_id], onDelete: NoAction)
+  players         MatchPlayers[]
+
+  @@index([phase_id])
+  @@index([matchplay_league_id])
+  @@index([home_team_id])
+  @@index([away_team_id])
+}
+
+model MatchPlayers {
+  id              Int             @id @default(autoincrement())
+  match_id        Int
+  player_id       Int
+  team_id         Int
+  points_earned   Decimal?        @db.Decimal(3, 1)
+  
+  // Relations
+  match           Match           @relation(fields: [match_id], references: [match_id], onDelete: Cascade)
+  player          Players         @relation(fields: [player_id], references: [player_id], onDelete: Cascade)
+
+  @@index([match_id])
+  @@index([player_id])
+}
+
+// Tournament-specific models that remain largely the same
+model Rounds {
+  round_id      Int            @id @default(autoincrement())
+  tournament_id Int
+  course_id     Int
+  round_number  Int?
+  format        Rounds_format?
+  sequence      Int
+  
+  // Relations
+  Flights       Flights[]
+  PlayerTees    PlayerTees[]
+  Tournaments   Tournament     @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade)
+  Courses       Courses        @relation(fields: [course_id], references: [course_id], onDelete: NoAction)
+
+  @@index([course_id])
+  @@index([tournament_id])
+}
+
+model Flights {
+  flight_id     Int             @
+
+  model Flights {
+  flight_id     Int             @id @default(autoincrement())
+  round_id      Int?
+  league_round_id Int?
+  game_id       Int?
+  name          String?         @db.VarChar(100)
+  passcode      String?         @db.VarChar(10)
+  status        Flights_status? @default(active)
+  starting_tee  Int?
+  starting_time DateTime?
+  
+  // Relations
+  Rounds        Rounds?         @relation(fields: [round_id], references: [round_id], onDelete: SetNull)
+  LeagueRound   LeagueRound?    @relation(fields: [league_round_id], references: [round_id], onDelete: SetNull)
+  Game          Game?           @relation(fields: [game_id], references: [game_id], onDelete: SetNull)
+  PlayerFlights PlayerFlights[]
+  Scorecards    Scorecards[]
+
+  @@index([round_id])
+  @@index([league_round_id])
+  @@index([game_id])
 }
 
 model PlayerFlights {
@@ -99,13 +409,15 @@ model PlayerFlights {
   player_id        Int
   flight_id        Int
   tee_id           Int
-  Players          Players @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerFlights_ibfk_1")
-  Flights          Flights @relation(fields: [flight_id], references: [flight_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerFlights_ibfk_2")
-  Tees             Tees    @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerFlights_ibfk_3")
+  
+  // Relations
+  Players          Players @relation(fields: [player_id], references: [player_id], onDelete: Cascade)
+  Flights          Flights @relation(fields: [flight_id], references: [flight_id], onDelete: Cascade)
+  Tees             Tees    @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction)
 
-  @@index([flight_id], map: "flight_id")
-  @@index([player_id], map: "player_id")
-  @@index([tee_id], map: "tee_id")
+  @@index([flight_id])
+  @@index([player_id])
+  @@index([tee_id])
 }
 
 model PlayerTees {
@@ -114,51 +426,15 @@ model PlayerTees {
   round_id          Int
   tee_id            Int
   assigned_handicap Decimal? @db.Decimal(5, 1)
-  Players           Players  @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerTees_ibfk_1")
-  Rounds            Rounds   @relation(fields: [round_id], references: [round_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerTees_ibfk_2")
-  Tees              Tees     @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction, onUpdate: NoAction, map: "PlayerTees_ibfk_3")
+  
+  // Relations
+  Players           Players  @relation(fields: [player_id], references: [player_id], onDelete: Cascade)
+  Rounds            Rounds   @relation(fields: [round_id], references: [round_id], onDelete: Cascade)
+  Tees              Tees     @relation(fields: [tee_id], references: [tee_id], onDelete: NoAction)
 
-  @@index([player_id], map: "player_id")
-  @@index([round_id], map: "round_id")
-  @@index([tee_id], map: "tee_id")
-}
-
-model Players {
-  player_id               Int                       @id @default(autoincrement())
-  email                   String                    @unique(map: "email") @db.VarChar(255)
-  password_hash           String                    @db.VarChar(255)
-  first_name              String?                   @db.VarChar(50)
-  last_name               String?                   @db.VarChar(50)
-  role                    Players_role?             @default(player)
-  gender                  Players_gender?
-  handicap_index          Decimal?                  @db.Decimal(5, 1)
-  home_club               String?                   @db.VarChar(100)
-  date_of_birth           DateTime?                 @db.Date
-  created_at              DateTime?                 @default(now()) @db.Timestamp(0)
-  updated_at              DateTime?                 @default(now()) @db.Timestamp(0)
-  auditLogs               AuditLogs[]
-  handicapHistories       HandicapHistory[]
-  leaderboards            Leaderboard[]
-  playerFlights           PlayerFlights[]
-  playerTees              PlayerTees[]
-  scorecards              Scorecards[]
-  TournamentRegistrations TournamentRegistrations[]
-}
-
-model Rounds {
-  round_id      Int            @id @default(autoincrement())
-  tournament_id Int
-  course_id     Int
-  round_number  Int?
-  format        Rounds_format?
-  sequence      Int
-  Flights       Flights[]
-  PlayerTees    PlayerTees[]
-  Tournaments   Tournaments    @relation(fields: [tournament_id], references: [tournament_id], onDelete: NoAction, onUpdate: NoAction, map: "Rounds_ibfk_1")
-  Courses       Courses        @relation(fields: [course_id], references: [course_id], onDelete: NoAction, onUpdate: NoAction, map: "Rounds_ibfk_2")
-
-  @@index([course_id], map: "course_id")
-  @@index([tournament_id], map: "tournament_id")
+  @@index([player_id])
+  @@index([round_id])
+  @@index([tee_id])
 }
 
 model Scorecards {
@@ -169,12 +445,14 @@ model Scorecards {
   total_score  Int?
   passcode     String?            @db.VarChar(255)
   confirmed_at DateTime?          @db.Timestamp(0)
-  Flights      Flights            @relation(fields: [flight_id], references: [flight_id], onDelete: NoAction, onUpdate: NoAction, map: "Scorecards_ibfk_1")
-  Players      Players            @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "Scorecards_ibfk_2")
+  
+  // Relations
+  Flights      Flights            @relation(fields: [flight_id], references: [flight_id], onDelete: Cascade)
+  Players      Players            @relation(fields: [player_id], references: [player_id], onDelete: Cascade)
   Scores       Scores[]
 
-  @@index([flight_id], map: "flight_id")
-  @@index([player_id], map: "player_id")
+  @@index([flight_id])
+  @@index([player_id])
 }
 
 model Scores {
@@ -184,52 +462,28 @@ model Scores {
   gross        Int?
   net          Int?
   stb          Int?
+  
+  // Relations
   AuditLogs    AuditLogs[]
-  Scorecards   Scorecards  @relation(fields: [scorecard_id], references: [scorecard_id], onDelete: NoAction, onUpdate: NoAction, map: "Scores_ibfk_1")
-  Holes        Holes       @relation(fields: [hole_id], references: [hole_id], onDelete: NoAction, onUpdate: NoAction, map: "Scores_ibfk_2")
+  Scorecards   Scorecards  @relation(fields: [scorecard_id], references: [scorecard_id], onDelete: Cascade)
+  Holes        Holes       @relation(fields: [hole_id], references: [hole_id], onDelete: NoAction)
 
   @@unique([scorecard_id, hole_id], name: "scorecard_id_hole_id")
-  @@index([hole_id], map: "hole_id")
-  @@index([scorecard_id], map: "scorecard_id")
-}
-
-model Tees {
-  tee_id        Int             @id @default(autoincrement())
-  course_id     Int
-  tee_color     String          @db.VarChar(50)
-  course_rating Decimal?        @db.Decimal(5, 2)
-  slope_rating  Int?
-  CategoryTees  CategoryTees[]
-  Holes         Holes[]
-  PlayerFlights PlayerFlights[]
-  PlayerTees    PlayerTees[]
-  Courses       Courses         @relation(fields: [course_id], references: [course_id], onDelete: NoAction, onUpdate: NoAction, map: "Tees_ibfk_1")
-
-  @@index([course_id], map: "course_id")
+  @@index([hole_id])
+  @@index([scorecard_id])
 }
 
 model TournamentCategories {
   tournament_category_id Int         @id @default(autoincrement())
   tournament_id          Int
   category_id            Int
-  Tournaments            Tournaments @relation(fields: [tournament_id], references: [tournament_id], onDelete: NoAction, onUpdate: NoAction, map: "TournamentCategories_ibfk_1")
-  Categories             Categories  @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "TournamentCategories_ibfk_2")
+  
+  // Relations
+  Tournaments            Tournament  @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade)
+  Categories             Categories  @relation(fields: [category_id], references: [category_id], onDelete: NoAction)
 
-  @@index([category_id], map: "category_id")
-  @@index([tournament_id], map: "tournament_id")
-}
-
-model Tournaments {
-  tournament_id           Int                       @id @default(autoincrement())
-  tournament_name         String                    @db.VarChar(255)
-  start_date              DateTime?                 @db.Date
-  end_date                DateTime?                 @db.Date
-  status                  Tournaments_status?       @default(upcoming)
-  created_at              DateTime?                 @default(now()) @db.Timestamp(0)
-  sponsor_name            String                    @db.VarChar(255)
-  Rounds                  Rounds[]
-  TournamentCategories    TournamentCategories[]
-  TournamentRegistrations TournamentRegistrations[]
+  @@index([category_id])
+  @@index([tournament_id])
 }
 
 model TournamentRegistrations {
@@ -237,9 +491,11 @@ model TournamentRegistrations {
   player_id                  Int
   tournament_id              Int
   category_id                Int
-  Players                    Players     @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction, map: "TournamentRegistrations_ibfk_1")
-  Tournaments                Tournaments @relation(fields: [tournament_id], references: [tournament_id], onDelete: NoAction, onUpdate: NoAction, map: "TournamentRegistrations_ibfk_2")
-  Categories                 Categories  @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "TournamentRegistrations_ibfk_3")
+  
+  // Relations
+  Players                    Players     @relation(fields: [player_id], references: [player_id], onDelete: Cascade)
+  Tournaments                Tournament  @relation(fields: [tournament_id], references: [tournament_id], onDelete: Cascade)
+  Categories                 Categories  @relation(fields: [category_id], references: [category_id], onDelete: NoAction)
 
   @@unique([player_id, tournament_id], map: "player_tournament")
   @@index([category_id], map: "category_idx")
@@ -252,37 +508,33 @@ model Leaderboard {
   categories_id  Int
   score          Int
   player_id      Int
-  Categories     Categories @relation(fields: [categories_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction)
-  Players        Players    @relation(fields: [player_id], references: [player_id], onDelete: NoAction, onUpdate: NoAction)
+  
+  // Relations
+  Categories     Categories @relation(fields: [categories_id], references: [category_id], onDelete: NoAction)
+  Players        Players    @relation(fields: [player_id], references: [player_id], onDelete: Cascade)
 
-  @@index([categories_id], map: "categories_id")
-  @@index([player_id], map: "player_id")
+  @@index([categories_id])
+  @@index([player_id])
 }
 
-enum Categories_gender {
-  M
-  F
-  O
-  All
+// Scheduling models
+model SchedulingSettings {
+  id                  Int      @id @default(autoincrement())
+  tournament_id       Int?
+  league_id           Int?
+  registration_open   DateTime?
+  registration_close  DateTime?
+  max_participants    Int?
+  enable_waitlist     Boolean  @default(false)
+  auto_assign_flights Boolean  @default(false)
+  
+  // Polymorphic relation - either tournament or league
+  @@unique([tournament_id, league_id]) // Ensure it's linked to just one entity
+  @@index([tournament_id])
+  @@index([league_id])
 }
 
-enum Scorecards_status {
-  pending
-  approved
-  rejected
-}
-
-enum Flights_status {
-  active
-  locked
-}
-
-enum Tournaments_status {
-  upcoming
-  active
-  completed
-}
-
+// Enums
 enum Players_role {
   player
   admin
@@ -293,6 +545,25 @@ enum Players_gender {
   M
   F
   O
+}
+
+enum Categories_gender {
+  M
+  F
+  O
+  All
+}
+
+enum Categories_format {
+  Gross
+  Medal_Net           @map("Medal Net")
+  Stableford_Net      @map("Stableford Net")
+  Singles
+  Fourball
+  Foursomes
+  Skins
+  Scramble
+  Modified_Stableford @map("Modified Stableford")
 }
 
 enum Rounds_format {
@@ -307,14 +578,69 @@ enum Rounds_format {
   Modified_Stableford @map("Modified Stableford")
 }
 
-enum Categories_format {
-  Gross
-  Medal_Net           @map("Medal Net")
-  Stableford_Net      @map("Stableford Net")
-  Singles
-  Fourball
-  Foursomes
-  Skins
-  Scramble
-  Modified_Stableford @map("Modified Stableford")
+enum Scorecards_status {
+  pending
+  approved
+  rejected
 }
+
+enum Flights_status {
+  active
+  locked
+}
+
+enum Event_status {
+  upcoming
+  active
+  completed
+  cancelled
+}
+
+enum Event_type {
+  tournament
+  game
+  league
+}
+
+enum Tournament_type {
+  strokeplay
+  team_matchplay
+}
+
+enum MatchplayFormat {
+  league         // Round-robin format
+  bracket        // Knockout format
+  hybrid         // League phase followed by knockout
+}
+
+enum League_type {
+  individual
+  team
+  matchplay
+}
+
+enum Round_status {
+  upcoming
+  active
+  completed
+}
+
+enum Match_status {
+  scheduled
+  in_progress
+  completed
+  cancelled
+}
+
+enum MatchPhase_type {
+  singles
+  foursomes
+  fourball
+}
+
+enum TeamMember_role {
+  captain
+  vice_captain
+  member
+}
+
